@@ -1,0 +1,113 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from app.core.database import get_db
+from app.core.dependencies import get_current_user, get_current_admin
+from app.models.project import Project
+from app.models.user import User, UserRole
+from app.schemas.project_schema import ProjectCreate, ProjectUpdate, ProjectResponse
+
+router = APIRouter()
+
+# Admin: Create project for a client
+@router.post("/", response_model=ProjectResponse)
+def create_project(
+    project_data: ProjectCreate,
+    client_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    client = db.query(User).filter(User.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    new_project = Project(
+        title=project_data.title,
+        description=project_data.description,
+        budget=project_data.budget,
+        deadline=project_data.deadline,
+        client_id=client_id
+    )
+    db.add(new_project)
+    db.commit()
+    db.refresh(new_project)
+    return new_project
+
+# Admin: Get all projects
+@router.get("/", response_model=List[ProjectResponse])
+def get_all_projects(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    projects = db.query(Project).all()
+    return projects
+
+# Client: Get my projects
+@router.get("/my-projects", response_model=List[ProjectResponse])
+def get_my_projects(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    projects = db.query(Project).filter(
+        Project.client_id == current_user.id
+    ).all()
+    return projects
+
+# Get single project
+@router.get("/{project_id}", response_model=ProjectResponse)
+def get_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Client can only see their own projects
+    if current_user.role == UserRole.client and project.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return project
+
+# Admin: Update project
+@router.put("/{project_id}", response_model=ProjectResponse)
+def update_project(
+    project_id: int,
+    update_data: ProjectUpdate,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if update_data.title:
+        project.title = update_data.title
+    if update_data.description:
+        project.description = update_data.description
+    if update_data.budget:
+        project.budget = update_data.budget
+    if update_data.deadline:
+        project.deadline = update_data.deadline
+    if update_data.status:
+        project.status = update_data.status
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+# Admin: Delete project
+@router.delete("/{project_id}")
+def delete_project(
+    project_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    db.delete(project)
+    db.commit()
+    return {"message": "Project deleted successfully"}

@@ -16,3 +16,4 @@ class Blog(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     author = relationship("User", back_populates="blogs")
+   

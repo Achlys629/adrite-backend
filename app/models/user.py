@@ -17,6 +17,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.client)
     is_active = Column(Boolean, default=True)
+    refresh_token = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
     avatar_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -26,4 +27,5 @@ class User(Base):
     invoices = relationship("Invoice", back_populates="client")
     tickets = relationship("Ticket", back_populates="client")
     blogs = relationship("Blog", back_populates="author")
+    
     chat_messages = relationship("ChatMessage", back_populates="client")
