@@ -1,22 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
-from sqlalchemy.orm import Session
-
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import (
     hash_password, verify_password,
     create_access_token, create_refresh_token
 )
+from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user_schema import UserRegister, UserLogin, UserResponse, TokenResponse
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
+security = HTTPBearer()
 
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 @router.post("/register", response_model=UserResponse)
-def register(user_data: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -32,27 +36,25 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     return new_user
 
 @router.post("/login", response_model=TokenResponse)
-def login(user_data: UserLogin, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, user_data: UserLogin, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # Create tokens
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
     refresh_token = create_refresh_token()
 
-    # Save refresh token in database
     user.refresh_token = refresh_token
     db.commit()
 
-    # Set refresh token as HTTP-only cookie
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         samesite="lax",
-        secure=False #true in production
+        secure=False
     )
 
     return {
@@ -63,6 +65,7 @@ def login(user_data: UserLogin, response: Response, db: Session = Depends(get_db
     }
 
 @router.post("/refresh")
+@limiter.limit("20/minute")
 def refresh_token(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("refresh_token")
     if not token:
@@ -86,10 +89,6 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 
     response.delete_cookie("refresh_token")
     return {"message": "Logged out successfully"}
-
-security = HTTPBearer()
-from app.core.dependencies import get_current_user
-from app.core.dependencies import get_current_user
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):

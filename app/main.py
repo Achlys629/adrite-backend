@@ -6,13 +6,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import http_exception_handler
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.utils.exceptions import validation_exception_handler, http_exception_handler as custom_http_handler
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded 
 
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="ADRITE AGENCY API",
     version="1.0.0",
     swagger_ui_parameters={"persistAuthorization": True}
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.middleware("http")
 async def add_ngrok_header(request, call_next):
