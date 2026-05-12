@@ -6,7 +6,7 @@ from app.core.dependencies import get_current_user, get_current_admin
 from app.models.ticket import Ticket
 from app.models.user import User, UserRole
 from app.schemas.ticket_schema import TicketCreate, TicketUpdate, TicketResponse
-
+from app.utils.pagination import PaginationParams,paginate_query 
 router = APIRouter()
 
 # Client: Create ticket
@@ -28,25 +28,28 @@ def create_ticket(
     db.refresh(new_ticket)
     return new_ticket
 
-# Admin: Get all tickets
-@router.get("/", response_model=List[TicketResponse])
+# Admin: Get all tickets with pagination
+@router.get("/")
 def get_all_tickets(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    tickets = db.query(Ticket).all()
-    return tickets
+    query = db.query(Ticket)
+    if pagination.search:
+        query = query.filter(Ticket.subject.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
 
-# Client: Get my tickets
-@router.get("/my-tickets", response_model=List[TicketResponse])
+# Client: Get my tickets with pagination
+@router.get("/my-tickets")
 def get_my_tickets(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    tickets = db.query(Ticket).filter(
-        Ticket.client_id == current_user.id
-    ).all()
-    return tickets
+    query = db.query(Ticket).filter(Ticket.client_id == current_user.id)
+    return paginate_query(query, pagination)
+
 
 # Get single ticket
 @router.get("/{ticket_id}", response_model=TicketResponse)

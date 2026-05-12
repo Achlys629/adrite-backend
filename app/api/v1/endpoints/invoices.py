@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_current_admin
+from app.utils.pagination import PaginationParams, paginate_query
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.user import User, UserRole
 from app.schemas.invoice_schema import InvoiceCreate, InvoiceUpdate, InvoiceResponse
@@ -16,7 +17,8 @@ def create_invoice(
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    # Check if invoice number already exists
+    # Check if invoice number already exists..hehe
+    
     existing = db.query(Invoice).filter(
         Invoice.invoice_number == invoice_data.invoice_number
     ).first()
@@ -36,25 +38,27 @@ def create_invoice(
     db.refresh(new_invoice)
     return new_invoice
 
-# Admin: Get all invoices
-@router.get("/", response_model=List[InvoiceResponse])
+# Admin: Get all invoices with pagination
+@router.get("/")
 def get_all_invoices(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    invoices = db.query(Invoice).all()
-    return invoices
+    query = db.query(Invoice)
+    if pagination.search:
+        query = query.filter(Invoice.invoice_number.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
 
-# Client: Get my invoices
-@router.get("/my-invoices", response_model=List[InvoiceResponse])
+# Client: Get my invoices with pagination
+@router.get("/my-invoices")
 def get_my_invoices(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    invoices = db.query(Invoice).filter(
-        Invoice.client_id == current_user.id
-    ).all()
-    return invoices
+    query = db.query(Invoice).filter(Invoice.client_id == current_user.id)
+    return paginate_query(query, pagination)
 
 # Get single invoice
 @router.get("/{invoice_id}", response_model=InvoiceResponse)

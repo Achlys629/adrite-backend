@@ -52,7 +52,7 @@ def login(user_data: UserLogin, response: Response, db: Session = Depends(get_db
         httponly=True,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         samesite="lax",
-        secure=False  # Change itto true in production
+        secure=False #true in production
     )
 
     return {

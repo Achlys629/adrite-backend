@@ -7,14 +7,21 @@ from fastapi.exception_handlers import http_exception_handler
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.utils.exceptions import validation_exception_handler, http_exception_handler as custom_http_handler
 
+
 app = FastAPI(
     title="ADRITE AGENCY API",
     version="1.0.0",
     swagger_ui_parameters={"persistAuthorization": True}
 )
 
+@app.middleware("http")
+async def add_ngrok_header(request, call_next):
+    response = await call_next(request)
+    response.headers["ngrok-skip-browser-warning"] = "true"
+    return response
+
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
-app.add_exception_handler(StarletteHTTPException, custom_http_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,3 +43,4 @@ app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
 @app.get("/")
 def root():
     return {"message": "ADRITE AGENCY API is running"}
+

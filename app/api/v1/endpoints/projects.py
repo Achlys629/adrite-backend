@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_current_admin
 from app.models.project import Project
 from app.models.user import User, UserRole
 from app.schemas.project_schema import ProjectCreate, ProjectUpdate, ProjectResponse
+from app.utils.pagination import PaginationParams, paginate_query
 
 router = APIRouter()
 
@@ -33,25 +34,29 @@ def create_project(
     db.refresh(new_project)
     return new_project
 
-# Admin: Get all projects
-@router.get("/", response_model=List[ProjectResponse])
+# Admin: Get all projects with pagination
+@router.get("/")
 def get_all_projects(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    projects = db.query(Project).all()
-    return projects
+    query = db.query(Project)
+    if pagination.search:
+        query = query.filter(Project.title.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
 
-# Client: Get my projects
-@router.get("/my-projects", response_model=List[ProjectResponse])
+# Client: Get my projects with pagination
+@router.get("/my-projects")
 def get_my_projects(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    projects = db.query(Project).filter(
-        Project.client_id == current_user.id
-    ).all()
-    return projects
+    query = db.query(Project).filter(Project.client_id == current_user.id)
+    if pagination.search:
+        query = query.filter(Project.title.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
 
 # Get single project
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -64,7 +69,6 @@ def get_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Client can only see their own projects
     if current_user.role == UserRole.client and project.client_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 

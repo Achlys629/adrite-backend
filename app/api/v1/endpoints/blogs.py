@@ -9,7 +9,7 @@ from app.schemas.blog_schema import BlogCreate, BlogUpdate, BlogResponse
 
 router = APIRouter()
 
-# Admin: Create blog
+# Admin : Create blog
 @router.post("/", response_model=BlogResponse)
 def create_blog(
     blog_data: BlogCreate,
