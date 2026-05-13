@@ -7,6 +7,7 @@ from app.utils.pagination import PaginationParams, paginate_query
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.user import User, UserRole
 from app.schemas.invoice_schema import InvoiceCreate, InvoiceUpdate, InvoiceResponse
+from app.services.email_service import EmailService
 
 router = APIRouter()
 
@@ -17,13 +18,16 @@ def create_invoice(
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    # Check if invoice number already exists..hehe
-    
     existing = db.query(Invoice).filter(
         Invoice.invoice_number == invoice_data.invoice_number
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Invoice number already exists")
+
+    # Get client
+    client = db.query(User).filter(User.id == invoice_data.client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
 
     new_invoice = Invoice(
         invoice_number=invoice_data.invoice_number,
@@ -36,6 +40,15 @@ def create_invoice(
     db.add(new_invoice)
     db.commit()
     db.refresh(new_invoice)
+
+    # Send invoice email to client
+    EmailService.send_invoice_email(
+        client.email,
+        client.full_name,
+        new_invoice.invoice_number,
+        new_invoice.amount
+    )
+
     return new_invoice
 
 # Admin: Get all invoices with pagination

@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
+from app.services.email_service import EmailService
 from app.core.database import get_db
 from app.core.security import (
     hash_password, verify_password,
@@ -25,6 +26,7 @@ def register(request: Request, user_data: UserRegister, db: Session = Depends(ge
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    
     new_user = User(
         full_name=user_data.full_name,
         email=user_data.email,
@@ -33,6 +35,10 @@ def register(request: Request, user_data: UserRegister, db: Session = Depends(ge
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Send welcome email
+    EmailService.send_welcome_email(new_user.email, new_user.full_name)
+    
     return new_user
 
 @router.post("/login", response_model=TokenResponse)
@@ -93,3 +99,4 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+

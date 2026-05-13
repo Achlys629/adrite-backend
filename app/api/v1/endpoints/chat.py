@@ -5,6 +5,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_current_admin
 from app.models.chat import ChatMessage
 from app.models.user import User, UserRole
+from app.utils.pagination import PaginationParams, paginate_query
+
 from app.schemas.chat_schema import ChatMessageCreate, ChatMessageResponse
 
 router = APIRouter()
@@ -26,25 +28,27 @@ def send_message(
     db.refresh(new_message)
     return new_message
 
-# Client: Get my chat history
-@router.get("/my-chats", response_model=List[ChatMessageResponse])
-def get_my_chats(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    messages = db.query(ChatMessage).filter(
-        ChatMessage.client_id == current_user.id
-    ).order_by(ChatMessage.created_at.asc()).all()
-    return messages
-
-# Admin: Get all chats
-@router.get("/", response_model=List[ChatMessageResponse])
+# Client: my chat history with pagination
+@router.get("/")
 def get_all_chats(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    messages = db.query(ChatMessage).all()
-    return messages
+    query = db.query(ChatMessage)
+    return paginate_query(query, pagination)
+
+# my chat with pagination
+@router.get("/my-chats")
+def get_my_chats(
+    pagination: PaginationParams = Depends(),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(ChatMessage).filter(
+        ChatMessage.client_id == current_user.id
+    ).order_by(ChatMessage.created_at.asc())
+    return paginate_query(query, pagination)
 
 # Admin: Get chats of specific client
 @router.get("/client/{client_id}", response_model=List[ChatMessageResponse])
