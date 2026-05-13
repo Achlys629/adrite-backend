@@ -58,6 +58,8 @@ def get_my_invoices(
     db: Session = Depends(get_db)
 ):
     query = db.query(Invoice).filter(Invoice.client_id == current_user.id)
+    if pagination.search:
+        query = query.filter(Invoice.invoice_number.ilike(f"%{pagination.search}%"))
     return paginate_query(query, pagination)
 
 # Get single invoice

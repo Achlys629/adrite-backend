@@ -6,6 +6,7 @@ from app.core.dependencies import get_current_user, get_current_admin
 from app.models.blog import Blog
 from app.models.user import User
 from app.schemas.blog_schema import BlogCreate, BlogUpdate, BlogResponse
+from app.utils.pagination import PaginationParams, paginate_query
 
 router = APIRouter()
 
@@ -33,20 +34,29 @@ def create_blog(
     db.refresh(new_blog)
     return new_blog
 
-# Public: Get all published blogs
-@router.get("/", response_model=List[BlogResponse])
-def get_published_blogs(db: Session = Depends(get_db)):
-    blogs = db.query(Blog).filter(Blog.is_published == True).all()
-    return blogs
 
-# Admin: Get all blogs including unpublished
-@router.get("/all", response_model=List[BlogResponse])
+# Public: Get all published blogs with pagination
+@router.get("/")
+def get_published_blogs(
+    pagination: PaginationParams = Depends(),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Blog).filter(Blog.is_published == True)
+    if pagination.search:
+        query = query.filter(Blog.title.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
+
+# Admin: Get all blogs with pagination
+@router.get("/all")
 def get_all_blogs(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    blogs = db.query(Blog).all()
-    return blogs
+    query = db.query(Blog)
+    if pagination.search:
+        query = query.filter(Blog.title.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
 
 # Public: Get single blog by slug
 @router.get("/slug/{slug}", response_model=BlogResponse)

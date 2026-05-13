@@ -5,6 +5,8 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_current_admin
 from app.models.user import User, UserRole
 from app.schemas.user_schema import UserResponse, UserUpdate, UserAdminUpdate
+from app.utils.pagination import PaginationParams, paginate_query
+
 
 router = APIRouter()
 
@@ -29,14 +31,18 @@ def update_my_profile(
     db.refresh(current_user)
     return current_user
 
-# Admin: Get all users
-@router.get("/", response_model=List[UserResponse])
+
+# Admin: Get all users with pagination
+@router.get("/")
 def get_all_users(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    users = db.query(User).all()
-    return users
+    query = db.query(User)
+    if pagination.search:
+        query = query.filter(User.full_name.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
 
 # Admin: Get single user
 @router.get("/{user_id}", response_model=UserResponse)

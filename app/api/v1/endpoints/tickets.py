@@ -48,8 +48,9 @@ def get_my_tickets(
     db: Session = Depends(get_db)
 ):
     query = db.query(Ticket).filter(Ticket.client_id == current_user.id)
+    if pagination.search:
+        query = query.filter(Ticket.subject.ilike(f"%{pagination.search}%"))
     return paginate_query(query, pagination)
-
 
 # Get single ticket
 @router.get("/{ticket_id}", response_model=TicketResponse)
