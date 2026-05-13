@@ -6,6 +6,10 @@ from app.models.project import Project
 from app.models.user import User, UserRole
 from app.schemas.project_schema import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.utils.pagination import PaginationParams, paginate_query
+from fastapi import UploadFile, File
+from app.services.storage_service import StorageService
+
+ALLOWED_DOC_TYPES = ["application/pdf", "image/jpeg", "image/png"]
 
 router = APIRouter()
 
@@ -114,3 +118,21 @@ def delete_project(
     db.delete(project)
     db.commit()
     return {"message": "Project deleted successfully"}
+
+
+@router.post("/{project_id}/upload")
+async def upload_project_document(
+    project_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if file.content_type not in ALLOWED_DOC_TYPES:
+        raise HTTPException(status_code=400, detail="Only PDF, JPEG, PNG allowed")
+
+    url = StorageService.upload_file(file, folder="projects")
+    return {"document_url": url}

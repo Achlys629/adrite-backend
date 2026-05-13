@@ -6,7 +6,11 @@ from app.core.dependencies import get_current_user, get_current_admin
 from app.models.user import User, UserRole
 from app.schemas.user_schema import UserResponse, UserUpdate, UserAdminUpdate
 from app.utils.pagination import PaginationParams, paginate_query
+from fastapi import UploadFile, File
+from app.services.storage_service import StorageService
 
+
+ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 router = APIRouter()
 
@@ -93,3 +97,20 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"message": "User deleted successfully"}
+
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, WEBP allowed")
+
+    url = StorageService.upload_file(file, folder="avatars")
+    current_user.avatar_url = url
+    db.commit()
+
+    return {"avatar_url": url}
