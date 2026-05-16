@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException ,WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
@@ -6,7 +6,7 @@ from app.core.dependencies import get_current_user, get_current_admin
 from app.models.chat import ChatMessage
 from app.models.user import User, UserRole
 from app.utils.pagination import PaginationParams, paginate_query
-
+from app.services.websocket_manager import manager
 from app.schemas.chat_schema import ChatMessageCreate, ChatMessageResponse
 
 router = APIRouter()
@@ -97,3 +97,40 @@ def delete_message(
     db.delete(message)
     db.commit()
     return {"message": "Message deleted successfully"}
+
+
+
+
+# WebSocket: Real-time chat
+@router.websocket("/ws/{client_id}")
+async def websocket_chat(
+    websocket: WebSocket,
+    client_id: int,
+    db: Session = Depends(get_db)
+):
+    await manager.connect(websocket, client_id)
+    try:
+        while True:
+            # Wait for message from client
+            data = await websocket.receive_json()
+
+            # Save message to database
+            new_message = ChatMessage(
+                message=data["message"],
+                response=None,
+                client_id=client_id
+            )
+            db.add(new_message)
+            db.commit()
+            db.refresh(new_message)
+
+            # Send confirmation back to client
+            await manager.send_message_to_client(client_id, {
+                "id": new_message.id,
+                "message": new_message.message,
+                "response": None,
+                "created_at": str(new_message.created_at)
+            })
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, client_id)
