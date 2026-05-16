@@ -20,7 +20,7 @@ security = HTTPBearer()
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 @router.post("/register", response_model=UserResponse)
-@limiter.limit("5/minute")
+@limiter.limit("3/minute")
 def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
@@ -42,7 +42,7 @@ def register(request: Request, user_data: UserRegister, db: Session = Depends(ge
     return new_user
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 def login(request: Request, user_data: UserLogin, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     if not user or not verify_password(user_data.password, user.hashed_password):

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_BUCKET_NAME: str = ""
     AWS_REGION: str = "us-east-1"
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
 
     class Config:
         env_file = ".env"
