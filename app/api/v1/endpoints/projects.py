@@ -119,7 +119,7 @@ def delete_project(
     db.commit()
     return {"message": "Project deleted successfully"}
 
-
+# document upload
 @router.post("/{project_id}/upload")
 async def upload_project_document(
     project_id: int,
