@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from app import models
 from fastapi.exception_handlers import http_exception_handler,RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -12,6 +11,7 @@ from app.utils.logger import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.middleware.logging import logging_middleware
 from contextlib import asynccontextmanager
+from app.middleware.cors import setup_cors
 
 
 @asynccontextmanager
@@ -29,6 +29,9 @@ app = FastAPI(
      lifespan=lifespan
     
 )
+#cors.py
+setup_cors(app)
+
 # Rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
@@ -42,14 +45,7 @@ async def add_ngrok_header(request, call_next):
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173",
-                   "https://devotedly-subtotal-evident.ngrok-free.dev"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])

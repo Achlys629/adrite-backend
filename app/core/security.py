@@ -5,6 +5,9 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from app.core.config import settings
 import secrets
+import random
+
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -30,3 +33,9 @@ def decode_access_token(token: str):
         return payload
     except JWTError:
         return None
+
+def generate_otp() -> str:
+    return str(random.randint(100000, 999999))
+
+def generate_reset_token() -> str:
+    return secrets.token_urlsafe(32)

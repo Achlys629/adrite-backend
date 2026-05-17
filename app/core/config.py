@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
 
     class Config:
         env_file = ".env"
