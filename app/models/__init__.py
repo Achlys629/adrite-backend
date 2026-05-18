@@ -5,3 +5,4 @@ from app.models.ticket import Ticket, TicketMessage
 from app.models.blog import Blog, Testimonial, NewsletterSubscriber
 from app.models.chat import ChatMessage
 from app.models.analytics import AnalyticsEvent
+from app.models.project import Project, Task, Meeting

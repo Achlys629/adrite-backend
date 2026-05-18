@@ -1,0 +1,75 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: adrite_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ..:/app
+    restart: unless-stopped
+    networks:
+      - adrite_network
+
+  db:
+    image: postgres:15
+    container_name: adrite_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: adrite_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - adrite_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: adrite_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - adrite_network
+
+  celery_worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: adrite_celery
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    env_file:
+      - .env.docker
+    depends_on:
+      - api
+      - redis
+      - db
+    networks:
+      - adrite_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  adrite_network:
+    driver: bridge

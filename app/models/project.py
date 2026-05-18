@@ -41,3 +41,21 @@ class Task(Base):
 
     project = relationship("Project", back_populates="tasks")
     assignee = relationship("User", back_populates="tasks")
+
+
+    #meeting 
+class Meeting(Base):
+    __tablename__ = "meetings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    meeting_link = Column(String, nullable=True)
+    scheduled_at = Column(DateTime(timezone=True), nullable=False)
+    duration_minutes = Column(Integer, default=30)
+    status = Column(String, default="scheduled")
+    client_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    client = relationship("User", back_populates="meetings")

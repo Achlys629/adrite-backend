@@ -12,7 +12,7 @@ from app.schemas.chat_schema import ChatMessageCreate, ChatMessageResponse
 router = APIRouter()
 
 # Client: Send message
-@router.post("/", response_model=ChatMessageResponse)
+@router.post("/send", response_model=ChatMessageResponse)
 def send_message(
     chat_data: ChatMessageCreate,
     current_user: User = Depends(get_current_user),

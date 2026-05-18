@@ -5,13 +5,29 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.utils.exceptions import validation_exception_handler, http_exception_handler as custom_http_handler
 from slowapi.errors import RateLimitExceeded
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded 
 from app.api.v1.endpoints import auth, users, projects, invoices, tickets, blogs, chat, payments, admin, webhooks
 from app.utils.logger import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.middleware.logging import logging_middleware
 from contextlib import asynccontextmanager
 from app.middleware.cors import setup_cors
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        
+        # Disable strict CSP for Swagger UI docs so it can load external JS/CSS from CDNs
+        if not request.url.path.startswith(("/docs", "/redoc", "/openapi.json")):
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
+            
+        return response
+
 
 
 @asynccontextmanager
@@ -45,7 +61,8 @@ async def add_ngrok_header(request, call_next):
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
-
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])

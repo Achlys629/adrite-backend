@@ -37,6 +37,7 @@ class User(Base):
     testimonials = relationship("Testimonial", back_populates="client", lazy="select")
     analytics_events = relationship("AnalyticsEvent", back_populates="user", lazy="select")
     chat_messages = relationship("ChatMessage", back_populates="client")
+    meetings = relationship("Meeting", back_populates="client", lazy="select")
 
 
 # for profile

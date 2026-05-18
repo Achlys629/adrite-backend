@@ -6,9 +6,54 @@ from app.models.user import User
 from app.models.project import Project
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.ticket import Ticket, TicketStatus
+from app.utils.pagination import PaginationParams, paginate_query
+from app.models.project import Project, Task
+from app.schemas.user_schema import UserResponse
 from app.schemas.admin_schema import DashboardStats
+from fastapi import APIRouter, Depends, HTTPException
 
 router = APIRouter()
+
+# Admin: Get all users
+@router.get("/users")
+def get_all_users(
+    pagination: PaginationParams = Depends(),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    query = db.query(User)
+    if pagination.search:
+        query = query.filter(User.email.ilike(f"%{pagination.search}%"))
+    return paginate_query(query, pagination)
+
+# Admin: Assign task to project
+@router.put("/projects/{project_id}/assign")
+def assign_task(
+    project_id: int,
+    title: str,
+    assigned_to: int,
+    description: str = None,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user = db.query(User).filter(User.id == assigned_to).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    task = Task(
+        title=title,
+        description=description,
+        project_id=project_id,
+        assigned_to=assigned_to
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
 
 # Admin: Dashboard stats
 @router.get("/dashboard", response_model=DashboardStats)
