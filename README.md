@@ -228,13 +228,6 @@ Copy `.env.example` to `.env` and fill in your values
 
 ---
 
-## Running Tests
-
-```bash
-pytest tests/ -v
-```
-
----
 
 ## Intern
 
